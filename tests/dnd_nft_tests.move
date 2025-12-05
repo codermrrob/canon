@@ -1,10 +1,10 @@
 #[test_only]
-module dnd_domain::dnd_content_tests {
+module dnd_nft::dnd_content_tests {
     use sui::test_scenario;
     use sui::clock;
     use std::string;
     use oclp::oclp_package::{Self, OCLPPackage};
-    use dnd_domain::dnd_content::{Self, DnDContent};
+    use dnd_nft::dnd_content::{Self, DnDContent};
 
     // ═══════════════════════════════════════════════════════════════════════
     // Test Constants
@@ -87,7 +87,7 @@ module dnd_domain::dnd_content_tests {
         
         // First transaction: mint
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             let dnd_content = dnd_content::mint(
                 string::utf8(b"Test Monster"),
@@ -132,7 +132,7 @@ module dnd_domain::dnd_content_tests {
         
         // First transaction: mint to sender
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Direct Mint Monster"),
@@ -180,7 +180,7 @@ module dnd_domain::dnd_content_tests {
         
         // First transaction: mint
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Monster to Delete"),
@@ -229,7 +229,7 @@ module dnd_domain::dnd_content_tests {
         
         // First transaction: mint
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Monster to Fully Delete"),
@@ -274,7 +274,7 @@ module dnd_domain::dnd_content_tests {
         
         // First transaction: mint two separate packages
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             // Mint first
             dnd_content::mint_to_sender(
@@ -297,7 +297,7 @@ module dnd_domain::dnd_content_tests {
         // Second transaction: mint another
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Monster Two"),
@@ -343,7 +343,7 @@ module dnd_domain::dnd_content_tests {
         
         // First transaction: mint
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Monster to Destroy"),
@@ -391,7 +391,7 @@ module dnd_domain::dnd_content_tests {
         let mut scenario = test_scenario::begin(TEST_SENDER);
         
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             let dnd_content = dnd_content::mint(
                 string::utf8(b"Test Monster"),
@@ -455,7 +455,7 @@ module dnd_domain::dnd_content_tests {
         
         // First transaction: mint
         {
-            let mut clock = create_test_clock(&mut scenario);
+            let clock = create_test_clock(&mut scenario);
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Tradeable Monster"),

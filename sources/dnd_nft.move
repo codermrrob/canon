@@ -1,4 +1,4 @@
-module dnd_domain::dnd_content {
+module dnd_nft::dnd_content {
     use sui::clock::Clock;
     use sui::event;
     use oclp::oclp_package::{Self, OCLPPackage};

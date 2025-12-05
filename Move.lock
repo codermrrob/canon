@@ -2,10 +2,11 @@
 
 [move]
 version = 3
-manifest_digest = "C5F716946C3BC40D73EAC6398D84AE5FB8F542B5BAF727BEF0FBCEB753C132FC"
-deps_digest = "F8BBB0CCB2491CA29A3DF03D6F92277A4F3574266507ACD77214D37ECA3F3082"
+manifest_digest = "7E8D9383AF17A73D17F3FCF7CEF50CF5DFCE8172DC55E45AFC12B5F21B3997BA"
+deps_digest = "3C4103934B1E040BB6B23F1D610B4EF9F2F1166A50A104EADCF77467C004C600"
 dependencies = [
   { id = "Sui", name = "Sui" },
+  { id = "oclp_nft", name = "oclp_nft" },
 ]
 
 [[move.package]]
@@ -19,3 +20,24 @@ source = { git = "https://github.com/MystenLabs/sui.git", rev = "be94dd334013778
 dependencies = [
   { id = "MoveStdlib", name = "MoveStdlib" },
 ]
+
+[[move.package]]
+id = "oclp_nft"
+source = { git = "https://github.com/codermrrob/protocol.git", rev = "main", subdir = "" }
+
+dependencies = [
+  { id = "Sui", name = "Sui" },
+]
+
+[move.toolchain-version]
+compiler-version = "1.60.0"
+edition = "2024.beta"
+flavor = "sui"
+
+[env]
+
+[env.testnet]
+chain-id = "4c78adac"
+original-published-id = "0x1ca46683a78be9589cddfed930b82d8008f51e8f3dc9873ed4872960d9e0840f"
+latest-published-id = "0x1ca46683a78be9589cddfed930b82d8008f51e8f3dc9873ed4872960d9e0840f"
+published-version = "1"
