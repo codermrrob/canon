@@ -3,7 +3,7 @@ module dnd_nft::dnd_content_tests {
     use sui::test_scenario;
     use sui::clock;
     use std::string;
-    use oclp::oclp_package::{Self, OCLPPackage};
+    use oclp::oclp_package::{Self};
     use dnd_nft::dnd_content::{Self, DnDContent};
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -27,6 +27,10 @@ module dnd_nft::dnd_content_tests {
         0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01
     ];
 
+    const TEST_WORLD: vector<u8> = b"Forgotten Realms";
+    const TEST_SYSTEM: vector<u8> = b"D&D 5e";
+    const TEST_CONTENT_CATEGORY: vector<u8> = b"Monster";
+
     // ═══════════════════════════════════════════════════════════════════════
     // Helper Functions
     // ═══════════════════════════════════════════════════════════════════════
@@ -41,7 +45,7 @@ module dnd_nft::dnd_content_tests {
     // ═══════════════════════════════════════════════════════════════════════
 
     #[test]
-    fun test_mint_creates_both_objects() {
+    fun test_mint_creates_dnd_content_with_attached_provenance() {
         let mut scenario = test_scenario::begin(TEST_SENDER);
         
         // First transaction: mint via domain
@@ -51,6 +55,9 @@ module dnd_nft::dnd_content_tests {
             
             let dnd_content = dnd_content::mint(
                 string::utf8(b"Elder Void Wurm"),
+                string::utf8(TEST_WORLD),
+                string::utf8(TEST_SYSTEM),
+                string::utf8(TEST_CONTENT_CATEGORY),
                 61,
                 TEST_MERKLE_ROOT,
                 b"package_blob_id",
@@ -68,14 +75,18 @@ module dnd_nft::dnd_content_tests {
             clock::destroy_for_testing(clock);
         };
         
-        // Second transaction: verify both objects exist for sender
+        // Second transaction: verify DnDContent exists with attached provenance
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
             // Should have DnDContent
             assert!(test_scenario::has_most_recent_for_sender<DnDContent>(&scenario), 0);
             
-            // Should also have OCLPPackage (transferred independently)
-            assert!(test_scenario::has_most_recent_for_sender<OCLPPackage>(&scenario), 1);
+            // Verify provenance is accessible via borrow
+            let dnd_content = test_scenario::take_from_sender<DnDContent>(&scenario);
+            let provenance = dnd_content::borrow_provenance(&dnd_content);
+            assert!(oclp_package::get_package_name(provenance) == string::utf8(b"Elder Void Wurm"), 1);
+            
+            test_scenario::return_to_sender(&scenario, dnd_content);
         };
         
         test_scenario::end(scenario);
@@ -91,6 +102,9 @@ module dnd_nft::dnd_content_tests {
             
             let dnd_content = dnd_content::mint(
                 string::utf8(b"Test Monster"),
+                string::utf8(TEST_WORLD),
+                string::utf8(TEST_SYSTEM),
+                string::utf8(TEST_CONTENT_CATEGORY),
                 61,
                 TEST_MERKLE_ROOT,
                 b"package_blob_id",
@@ -107,20 +121,19 @@ module dnd_nft::dnd_content_tests {
             clock::destroy_for_testing(clock);
         };
         
-        // Second transaction: verify provenance_id matches OCLPPackage id
+        // Second transaction: verify provenance_id matches attached OCLPPackage id
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
             let dnd_content = test_scenario::take_from_sender<DnDContent>(&scenario);
-            let oclp_package = test_scenario::take_from_sender<OCLPPackage>(&scenario);
             
-            // The DnDContent's provenance_id should match the OCLPPackage's id
+            // The DnDContent's provenance_id should match the attached OCLPPackage's id
             let provenance_id = dnd_content::get_provenance_id(&dnd_content);
-            let package_id = oclp_package::get_id(&oclp_package);
+            let provenance = dnd_content::borrow_provenance(&dnd_content);
+            let package_id = oclp_package::get_id(provenance);
             
             assert!(provenance_id == package_id, 0);
             
             test_scenario::return_to_sender(&scenario, dnd_content);
-            test_scenario::return_to_sender(&scenario, oclp_package);
         };
         
         test_scenario::end(scenario);
@@ -136,6 +149,9 @@ module dnd_nft::dnd_content_tests {
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Direct Mint Monster"),
+                string::utf8(TEST_WORLD),
+                string::utf8(TEST_SYSTEM),
+                string::utf8(TEST_CONTENT_CATEGORY),
                 61,
                 TEST_MERKLE_ROOT,
                 b"package_blob_id",
@@ -151,20 +167,16 @@ module dnd_nft::dnd_content_tests {
             clock::destroy_for_testing(clock);
         };
         
-        // Second transaction: verify sender owns both
+        // Second transaction: verify sender owns DnDContent with attached provenance
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
             let dnd_content = test_scenario::take_from_sender<DnDContent>(&scenario);
-            let oclp_package = test_scenario::take_from_sender<OCLPPackage>(&scenario);
-            
-            // Verify linkage
-            assert!(dnd_content::get_provenance_id(&dnd_content) == oclp_package::get_id(&oclp_package), 0);
+            let provenance = dnd_content::borrow_provenance(&dnd_content);
             
             // Verify package data is correct
-            assert!(oclp_package::get_package_name(&oclp_package) == string::utf8(b"Direct Mint Monster"), 1);
+            assert!(oclp_package::get_package_name(provenance) == string::utf8(b"Direct Mint Monster"), 0);
             
             test_scenario::return_to_sender(&scenario, dnd_content);
-            test_scenario::return_to_sender(&scenario, oclp_package);
         };
         
         test_scenario::end(scenario);
@@ -175,7 +187,7 @@ module dnd_nft::dnd_content_tests {
     // ═══════════════════════════════════════════════════════════════════════
 
     #[test]
-    fun test_delete_wrapper_only() {
+    fun test_delete_removes_both() {
         let mut scenario = test_scenario::begin(TEST_SENDER);
         
         // First transaction: mint
@@ -184,6 +196,9 @@ module dnd_nft::dnd_content_tests {
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Monster to Delete"),
+                string::utf8(TEST_WORLD),
+                string::utf8(TEST_SYSTEM),
+                string::utf8(TEST_CONTENT_CATEGORY),
                 61,
                 TEST_MERKLE_ROOT,
                 b"package_blob_id",
@@ -199,139 +214,18 @@ module dnd_nft::dnd_content_tests {
             clock::destroy_for_testing(clock);
         };
         
-        // Second transaction: delete only the wrapper
+        // Second transaction: delete (removes both DnDContent and attached OCLPPackage)
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
             let dnd_content = test_scenario::take_from_sender<DnDContent>(&scenario);
             dnd_content::delete(dnd_content);
         };
         
-        // Third transaction: verify wrapper gone but OCLPPackage remains
+        // Third transaction: verify both are gone
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
             // DnDContent should be gone
             assert!(!test_scenario::has_most_recent_for_sender<DnDContent>(&scenario), 0);
-            
-            // OCLPPackage should still exist
-            assert!(test_scenario::has_most_recent_for_sender<OCLPPackage>(&scenario), 1);
-            
-            // Clean up the remaining package
-            let oclp_package = test_scenario::take_from_sender<OCLPPackage>(&scenario);
-            oclp_package::delete(oclp_package);
-        };
-        
-        test_scenario::end(scenario);
-    }
-
-    #[test]
-    fun test_delete_with_provenance() {
-        let mut scenario = test_scenario::begin(TEST_SENDER);
-        
-        // First transaction: mint
-        {
-            let clock = create_test_clock(&mut scenario);
-            
-            dnd_content::mint_to_sender(
-                string::utf8(b"Monster to Fully Delete"),
-                61,
-                TEST_MERKLE_ROOT,
-                b"package_blob_id",
-                string::utf8(b"1.4"),
-                61,
-                TEST_MANIFEST_HASH,
-                b"manifest_blob_id",
-                option::none(),
-                &clock,
-                test_scenario::ctx(&mut scenario)
-            );
-            
-            clock::destroy_for_testing(clock);
-        };
-        
-        // Second transaction: delete both together
-        test_scenario::next_tx(&mut scenario, TEST_SENDER);
-        {
-            let dnd_content = test_scenario::take_from_sender<DnDContent>(&scenario);
-            let oclp_package = test_scenario::take_from_sender<OCLPPackage>(&scenario);
-            
-            dnd_content::delete_with_provenance(dnd_content, oclp_package);
-        };
-        
-        // Third transaction: verify both are gone
-        test_scenario::next_tx(&mut scenario, TEST_SENDER);
-        {
-            assert!(!test_scenario::has_most_recent_for_sender<DnDContent>(&scenario), 0);
-            assert!(!test_scenario::has_most_recent_for_sender<OCLPPackage>(&scenario), 1);
-        };
-        
-        test_scenario::end(scenario);
-    }
-
-    #[test]
-    #[expected_failure(abort_code = dnd_content::E_PROVENANCE_MISMATCH)]
-    fun test_delete_with_wrong_provenance_fails() {
-        let mut scenario = test_scenario::begin(TEST_SENDER);
-        
-        // First transaction: mint two separate packages
-        {
-            let clock = create_test_clock(&mut scenario);
-            
-            // Mint first
-            dnd_content::mint_to_sender(
-                string::utf8(b"Monster One"),
-                61,
-                TEST_MERKLE_ROOT,
-                b"package_blob_id_1",
-                string::utf8(b"1.4"),
-                61,
-                TEST_MANIFEST_HASH,
-                b"manifest_blob_id_1",
-                option::none(),
-                &clock,
-                test_scenario::ctx(&mut scenario)
-            );
-            
-            clock::destroy_for_testing(clock);
-        };
-        
-        // Second transaction: mint another
-        test_scenario::next_tx(&mut scenario, TEST_SENDER);
-        {
-            let clock = create_test_clock(&mut scenario);
-            
-            dnd_content::mint_to_sender(
-                string::utf8(b"Monster Two"),
-                61,
-                TEST_MERKLE_ROOT,
-                b"package_blob_id_2",
-                string::utf8(b"1.4"),
-                61,
-                TEST_MANIFEST_HASH,
-                b"manifest_blob_id_2",
-                option::none(),
-                &clock,
-                test_scenario::ctx(&mut scenario)
-            );
-            
-            clock::destroy_for_testing(clock);
-        };
-        
-        // Third transaction: try to delete with mismatched provenance
-        test_scenario::next_tx(&mut scenario, TEST_SENDER);
-        {
-            // Take both DnDContents - we'll get them in order
-            let dnd_content_1 = test_scenario::take_from_sender<DnDContent>(&scenario);
-            let dnd_content_2 = test_scenario::take_from_sender<DnDContent>(&scenario);
-            
-            // Take one OCLPPackage
-            let oclp_package = test_scenario::take_from_sender<OCLPPackage>(&scenario);
-            
-            // Try to delete dnd_content_1 with the wrong provenance
-            // This should fail with E_PROVENANCE_MISMATCH
-            dnd_content::delete_with_provenance(dnd_content_2, oclp_package);
-            
-            // Cleanup (won't reach here due to expected failure)
-            sui::transfer::public_transfer(dnd_content_1, TEST_SENDER);
         };
         
         test_scenario::end(scenario);
@@ -347,6 +241,9 @@ module dnd_nft::dnd_content_tests {
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Monster to Destroy"),
+                string::utf8(TEST_WORLD),
+                string::utf8(TEST_SYSTEM),
+                string::utf8(TEST_CONTENT_CATEGORY),
                 61,
                 TEST_MERKLE_ROOT,
                 b"package_blob_id",
@@ -369,14 +266,10 @@ module dnd_nft::dnd_content_tests {
             dnd_content::destroy(dnd_content);
         };
         
-        // Third transaction: verify wrapper gone
+        // Third transaction: verify both are gone
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
             assert!(!test_scenario::has_most_recent_for_sender<DnDContent>(&scenario), 0);
-            
-            // Clean up remaining OCLPPackage
-            let oclp_package = test_scenario::take_from_sender<OCLPPackage>(&scenario);
-            oclp_package::delete(oclp_package);
         };
         
         test_scenario::end(scenario);
@@ -395,6 +288,9 @@ module dnd_nft::dnd_content_tests {
             
             let dnd_content = dnd_content::mint(
                 string::utf8(b"Test Monster"),
+                string::utf8(TEST_WORLD),
+                string::utf8(TEST_SYSTEM),
+                string::utf8(TEST_CONTENT_CATEGORY),
                 61,
                 TEST_MERKLE_ROOT,
                 b"package_blob_id",
@@ -428,28 +324,37 @@ module dnd_nft::dnd_content_tests {
         let mut scenario = test_scenario::begin(TEST_SENDER);
         
         {
-            // Create a fake provenance ID
-            let fake_provenance_id = object::id_from_address(@0xABC);
+            // Create a test OCLPPackage
+            let provenance = oclp_package::create_test_package(
+                string::utf8(b"Test Package"),
+                TEST_MERKLE_ROOT,
+                test_scenario::ctx(&mut scenario)
+            );
+            let expected_provenance_id = oclp_package::get_id(&provenance);
             
             let dnd_content = dnd_content::create_test_content(
-                fake_provenance_id,
+                provenance,
+                string::utf8(TEST_WORLD),
+                string::utf8(TEST_SYSTEM),
+                string::utf8(TEST_CONTENT_CATEGORY),
                 test_scenario::ctx(&mut scenario)
             );
             
-            assert!(dnd_content::get_provenance_id(&dnd_content) == fake_provenance_id, 0);
+            assert!(dnd_content::get_provenance_id(&dnd_content) == expected_provenance_id, 0);
             
-            sui::transfer::public_transfer(dnd_content, TEST_SENDER);
+            // Clean up
+            dnd_content::delete(dnd_content);
         };
         
         test_scenario::end(scenario);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Independent Ownership Tests
+    // Paired Ownership Tests
     // ═══════════════════════════════════════════════════════════════════════
 
     #[test]
-    fun test_objects_can_be_transferred_independently() {
+    fun test_transfer_moves_both_objects_together() {
         let other_user: address = @0xBEEF;
         let mut scenario = test_scenario::begin(TEST_SENDER);
         
@@ -459,6 +364,9 @@ module dnd_nft::dnd_content_tests {
             
             dnd_content::mint_to_sender(
                 string::utf8(b"Tradeable Monster"),
+                string::utf8(TEST_WORLD),
+                string::utf8(TEST_SYSTEM),
+                string::utf8(TEST_CONTENT_CATEGORY),
                 61,
                 TEST_MERKLE_ROOT,
                 b"package_blob_id",
@@ -474,37 +382,31 @@ module dnd_nft::dnd_content_tests {
             clock::destroy_for_testing(clock);
         };
         
-        // Second transaction: transfer only DnDContent to other user
+        // Second transaction: transfer DnDContent to other user
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
             let dnd_content = test_scenario::take_from_sender<DnDContent>(&scenario);
             sui::transfer::public_transfer(dnd_content, other_user);
         };
         
-        // Third transaction: verify ownership split
+        // Third transaction: verify TEST_SENDER no longer has DnDContent
         test_scenario::next_tx(&mut scenario, TEST_SENDER);
         {
-            // TEST_SENDER still has OCLPPackage
-            assert!(test_scenario::has_most_recent_for_sender<OCLPPackage>(&scenario), 0);
-            // TEST_SENDER no longer has DnDContent
-            assert!(!test_scenario::has_most_recent_for_sender<DnDContent>(&scenario), 1);
+            assert!(!test_scenario::has_most_recent_for_sender<DnDContent>(&scenario), 0);
         };
         
-        // Fourth transaction: other user has DnDContent
+        // Fourth transaction: other user has DnDContent with attached provenance
         test_scenario::next_tx(&mut scenario, other_user);
         {
             assert!(test_scenario::has_most_recent_for_sender<DnDContent>(&scenario), 0);
             
-            // Clean up
+            // Verify provenance is still accessible
             let dnd_content = test_scenario::take_from_sender<DnDContent>(&scenario);
+            let provenance = dnd_content::borrow_provenance(&dnd_content);
+            assert!(oclp_package::get_package_name(provenance) == string::utf8(b"Tradeable Monster"), 1);
+            
+            // Clean up
             dnd_content::delete(dnd_content);
-        };
-        
-        // Clean up OCLPPackage
-        test_scenario::next_tx(&mut scenario, TEST_SENDER);
-        {
-            let oclp_package = test_scenario::take_from_sender<OCLPPackage>(&scenario);
-            oclp_package::delete(oclp_package);
         };
         
         test_scenario::end(scenario);
