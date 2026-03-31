@@ -94,6 +94,8 @@ module dnd_nft::dnd_content {
         clock: &Clock,
         ctx: &mut tx_context::TxContext
     ): DnDContent {
+
+        
         // Mint the protocol-level provenance NFT
         let provenance = oclp_package::mint(
             content_package_name,
@@ -123,7 +125,7 @@ module dnd_nft::dnd_content {
             content_category,
         };
 
-        // Attach OCLPPackage as dynamic object field (preserves independent discoverability)
+        // Attach OCLPPackage as dynamic object field (preserves independent discoverability via indexers)
         dof::add(&mut dnd_content.id, PROVENANCE_KEY, provenance);
 
         let dnd_content_id = object::id(&dnd_content);
